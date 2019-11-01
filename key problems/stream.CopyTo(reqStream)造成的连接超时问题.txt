@@ -1,0 +1,52 @@
+下面一段代码会发送 [请求超时] 的异常
+------------------------------
+            var uploadUrl2 = host + $"/bput/{ctx}/1024";
+            HttpWebRequest req2 = WebRequest.CreateHttp(uploadUrl2);
+            req2.Method = "POST";
+            //req2.Headers.Add("Qingzhen-Token", recentToken);
+            req2.Headers.Add("Authorization", uploadToken);
+            req2.ContentLength = block_size -1024;
+            req2.ContentType = "application/octet-stream";
+            req2.Headers.Add("UploadBatch", uuid);
+            req2.Headers.Add("Key", UrlSafeBase64.encode(keyname));
+            var reqStream2 = req2.GetRequestStream();
+            pvs.SetRange(1024 , block_size);
+
+            MemoryStream ms = new MemoryStream();
+            pvs.CopyTo(ms);
+            ms.CopyTo(reqStream2);
+            reqStream2.Close();
+
+            HttpWebResponse resp2 = null;
+            try
+            {
+                resp2 = (HttpWebResponse)req2.GetResponse();
+            }
+            catch (Exception e) { System.Windows.MessageBox.Show(e.Message); }
+-------------------------------
+而将ms.CopyTo(reqStream2)改成普通的 循环复制则没有问题。不知道这个CopyTo对reqStream做了什么处理。不过，同样是发送数据，由
+            var uploadUrl = host + $"/mkblk/{block_size}/0";
+发送的生成block 的请求，使用CopyTo却没有异常，不知道这里面有些什么问题。
+
+
+改为
+            var uploadUrl2 = host + $"/bput/{ctx}/1024";
+            HttpWebRequest req2 = WebRequest.CreateHttp(uploadUrl2);
+            req2.Method = "POST";
+            //req2.Headers.Add("Qingzhen-Token", recentToken);
+            req2.Headers.Add("Authorization", uploadToken);
+            req2.ContentLength = block_size -1024;
+            req2.ContentType = "application/octet-stream";
+            req2.Headers.Add("UploadBatch", uuid);
+            req2.Headers.Add("Key", UrlSafeBase64.encode(keyname));
+            var reqStream2 = req2.GetRequestStream();
+            pvs.SetRange(1024 , block_size);
+
+            pvs.BlockCopyTo(reqStream2)
+
+            HttpWebResponse resp2 = null;
+            try
+            {
+                resp2 = (HttpWebResponse)req2.GetResponse();
+            }
+            catch (Exception e) { System.Windows.MessageBox.Show(e.Message); }

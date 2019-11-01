@@ -1,0 +1,56 @@
+在UI线程中，当混合使用Wait()（或者Result）和 await模式时，可能会造成死锁问题。(Console程序不会造成此情况出现)
+
+eg:
+        private void Button_Click(object sender, RoutedEventArgs e)
+        {
+            Sixpan pan = new Sixpan();
+            pan.login().Wait();
+        }
+        public async Task<bool> login()
+        {
+            HttpClient _hc = new HttpClient();
+            var jsonStr = Newtonsoft.Json.JsonConvert.SerializeObject(data);
+            StringContent sc = new StringContent(jsonStr, Encoding.UTF8, "application/json");
+            var resp = await _hc.PostAsync(host + "/v2/user/login", sc);
+        }
+
+//-------------------------
+    首先需要知道, await 后面的代码并不是阻塞着等待 异步函数(PostAsync)的完成,而是编译器自己内部建立了一个Task，后面的代码放到了Task里面，当调用线程有恰当时机(有闲)，就会慢慢执行。执行完毕后，就会进行后面的步骤。
+    主线程(UI线程)在使用Wait()后，会等待 login()完成，而login()在PostAsync时其实会直接跳出来，但不是结束了login()的调用，而是等待调用线程(UI线程)空闲,然后再实行收尾工作。但是此时UI线程处于等待login()执行完全完毕的状态(阻塞),所以这个程序一直无法执行完毕。
+
+    所以，Wait() 不能随意和 await/async 的函数混用,容易发生预料不到的事情。
+--------------------------------
+MSND上有说明，有如下解决办法：
+https://msdn.microsoft.com/en-us/magazine/gg598924.aspx
+
+1. 一直使用 await/async ,不使用 Wait()/Result 即可
+2. 通过新开一个线程，让新线程去执行异步操作。
+3. 给异步操作配置ConfigureAwait(false)。
+
+====================================
+1.
+        private async void Button_Click(object sender, RoutedEventArgs e)
+        {
+            Sixpan pan = new Sixpan();
+            var t = await pan.login();
+        }
+------------------
+2.
+        private void Button_Click(object sender, RoutedEventArgs e)
+        {
+            Sixpan pan = new Sixpan();
+            Task.Run(async () =>
+            {
+                var t = await login();
+                //await之后的代码
+            }).Wait();//此处启动线程是为了防止Async & Await模式造成死锁
+        }
+---------------------------------------
+3.
+        public async Task<bool> login()
+        {
+            HttpClient _hc = new HttpClient();
+            var jsonStr = Newtonsoft.Json.JsonConvert.SerializeObject(data);
+            StringContent sc = new StringContent(jsonStr, Encoding.UTF8, "application/json");
+            var resp = await _hc.PostAsync(host + "/v2/user/login", sc).ConfigureAwait(false);
+        }

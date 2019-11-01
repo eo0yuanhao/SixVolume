@@ -1,0 +1,28 @@
+下面一段代码
+-------
+            PartViewStream pvs =new PartViewStream(stream);
+            pvs.BlockCopyTo(reqStream);
+            reqStream.Close();
+            var resp = (HttpWebResponse)await req.GetResponseAsync();
+stream是外部的局部变量
+---------
+stream
+造成了PartViewStream内部的stream被关闭。导致之后的读取异常。
+
+===============
+原因分析
+
+可能是await会生成一个Task，然后跳出(yeild),导致了局部变量stream 被GC提前释放，Task执行完毕后，stream只剩一个空壳了，表现上看就是文件被关闭了。
+改成同步方式
+-----------
+            PartViewStream pvs =new PartViewStream(stream);
+            pvs.BlockCopyTo(reqStream);
+            reqStream.Close();
+            var resp = (HttpWebResponse)req.GetResponse();
+-----------
+就不会出现stream被关闭的情况发生了。不过这样一来就会发送阻塞现象。
+
+
+----------------
+因为有 异步调用他的程序反悔void，故可以将反悔void 的程序改成返回Task，则也不会发生这种事情。
+

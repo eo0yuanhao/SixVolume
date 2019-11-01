@@ -1,0 +1,109 @@
+﻿<Window x:Class="ms_ui.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:ms_ui"
+        mc:Ignorable="d"
+        Title="MainWindow" Height="450" Width="800" 
+        Closing="Window_Closing">
+    <Window.Resources>
+        <local:IconConverter x:Key="iconConverter"/>
+        <local:MarkConverter x:Key="markConverter"/>
+        <Style x:Key="itemDoubleClick_style" TargetType="{x:Type ListViewItem}">
+            <EventSetter Event="MouseDoubleClick" Handler="ListViewItem_DoubleClick" />
+        </Style>
+        <Style x:Key="vvv3" TargetType="{x:Type ListView}">
+
+        </Style>
+        <Style x:Key="vvv2" TargetType="{x:Type ListViewItem}">
+            <Setter Property="ContextMenu">
+                <Setter.Value>
+                    <ContextMenu>
+                        <MenuItem Header="标记" Click="context_MarkFile">
+                        </MenuItem>
+                    </ContextMenu>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <DockPanel>
+        <Grid DockPanel.Dock="Right" HorizontalAlignment="Left" VerticalAlignment="Top" Width="266">
+            <Button x:Name="loginBtn" Content="login" HorizontalAlignment="Left" Margin="19,29,0,0" VerticalAlignment="Top" Width="75" Click="LoginBtn_Click" />
+            <Slider x:Name="progressSlider" Minimum="0" Maximum="1000" HorizontalAlignment="Left" Margin="3,319,0,0" VerticalAlignment="Top" Width="199"/>
+            <Button Content="list" HorizontalAlignment="Left" Margin="30,79,0,0" VerticalAlignment="Top" Width="38" Click="Button_Click"/>
+        </Grid>
+        <DockPanel LastChildFill="True" >
+            <DockPanel  DockPanel.Dock="Top" Height="24" VerticalAlignment="Top" >
+                <TextBlock DockPanel.Dock="Left" FontSize="14">cmd:</TextBlock>
+                <TextBox x:Name="cmdBox" TextWrapping="Wrap"  KeyUp="CmdBox_KeyUp"/>
+            </DockPanel>
+            <TreeView x:Name="dirTreeView" DockPanel.Dock="Left"  Width="100" SelectedItemChanged="DirTreeView_SelectedItemChanged">
+                <TreeView.ItemTemplate>
+                    <HierarchicalDataTemplate DataType="{x:Type local:VDirectory}" ItemsSource="{Binding Path=SubDirs}">
+                        <TextBlock Text="{Binding Path=Name}"/>
+                    </HierarchicalDataTemplate>
+                </TreeView.ItemTemplate>
+            </TreeView>
+            <ListView x:Name="listView" 
+                ItemContainerStyle="{StaticResource itemDoubleClick_style}" MouseDown="ListView_MouseDown" SelectionChanged="listView_SelectionChanged" 
+                >
+                <ListView.View>
+                    <GridView>
+                        <GridView.Columns>
+                            <GridViewColumn Width="160" Header="file">
+                                <GridViewColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <DockPanel LastChildFill="True">
+                                            <!--<Label   Background="{StaticResource ico_music}" Width="20" Height="20"/>-->
+                                            <Image Width="20" Height="20" Source="{Binding Path=IconType, Converter={StaticResource iconConverter}}"/>
+                                            <Label Content="{Binding Path=Name}" Background="{Binding Path=Marked, Converter={StaticResource markConverter}}"  VerticalAlignment="Top" FontSize="14">
+                                                <!--<Label.Background>
+                                                <MultiBinding Converter="{StaticResource markConverter}">
+                                                    <Binding Path="Id"></Binding>
+                                                    <Binding Path="PartFile"></Binding>
+                                                </MultiBinding>
+                                            </Label.Background>-->
+                                            </Label>
+
+                                        </DockPanel>
+                                    </DataTemplate>
+                                </GridViewColumn.CellTemplate>
+                            </GridViewColumn>
+                            <GridViewColumn Header="size" DisplayMemberBinding="{Binding Path=Size, StringFormat={}{0:N0}}" />
+                            <GridViewColumn Header="上传时间" DisplayMemberBinding="{Binding ModifiedTime}"/>
+                        </GridView.Columns>
+                    </GridView>
+                </ListView.View>
+                <ListView.ContextMenu>
+                    <ContextMenu>
+                        <MenuItem Header="下载" Click="context_DownloadFaceFile">
+                            <MenuItem.Icon>
+                                <Image Source="res/download.ico" Width="20" Height="20"/>
+                            </MenuItem.Icon>
+                        </MenuItem>
+                        <MenuItem Header="上传" Click="context_UploadFaceFile">
+                            <MenuItem.Icon>
+                                <Image Source="res/upload.ico" Width="20" Height="20"/>
+                            </MenuItem.Icon>
+                        </MenuItem>
+                        <MenuItem Header="删除" Click="context_DeleteFile">
+                            <MenuItem.Icon>
+                                <Image Source="res/recycler.ico" Width="20" Height="20" />
+                            </MenuItem.Icon>
+                        </MenuItem>
+                        <MenuItem Header="标记/去标记" Click="context_MarkFile">
+                        </MenuItem>
+                        <MenuItem Header="移动标记文件" Click="context_MoveMarkedFile">
+                        </MenuItem>
+                    </ContextMenu>
+                </ListView.ContextMenu>
+
+            </ListView>
+
+        </DockPanel>
+
+    </DockPanel>
+
+</Window>

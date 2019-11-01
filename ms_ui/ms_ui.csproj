@@ -1,0 +1,41 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.WindowsDesktop">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>netcoreapp3.0</TargetFramework>
+    <UseWPF>true</UseWPF>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Remove="res\app.ico" />
+    <None Remove="res\download.ico" />
+    <None Remove="res\file.ico" />
+    <None Remove="res\folder.ico" />
+    <None Remove="res\music.ico" />
+    <None Remove="res\pic.ico" />
+    <None Remove="res\recycler.ico" />
+    <None Remove="res\textfile.ico" />
+    <None Remove="res\upload.ico" />
+    <None Remove="res\video.ico" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="log4net" Version="2.0.8" />
+    <PackageReference Include="Nett" Version="0.13.0" />
+    <PackageReference Include="Newtonsoft.Json" Version="12.0.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="res\app.ico" />
+    <Resource Include="res\download.ico" />
+    <Resource Include="res\file.ico" />
+    <Resource Include="res\folder.ico" />
+    <Resource Include="res\music.ico" />
+    <Resource Include="res\pic.ico" />
+    <Resource Include="res\recycler.ico" />
+    <Resource Include="res\textfile.ico" />
+    <Resource Include="res\upload.ico" />
+    <Resource Include="res\video.ico" />
+  </ItemGroup>
+
+</Project>

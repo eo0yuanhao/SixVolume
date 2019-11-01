@@ -1,0 +1,68 @@
+将包含StreamContent的 HttpContent 发送给Sixpan时，会抛出[Error while copying content to a stream.]的异常，同时服务端断开连接
+--------------------------------------
+var dataContent = new MultipartFormDataContent()
+{
+    { new StringContent($"file"), "name" },                
+    { new StringContent($"{uploadToken}"), "token" },
+    { new StringContent("application/octet-stream"), "type" }
+};
+
+var sc = new StreamContent(stream);
+String headerValue = $"form-data; name=\"upload_file\"; filename=\"{name}\"";
+sc.Headers.Add("Content-Disposition", headerValue);
+dataContent.Add(sc);
+try
+{
+    var result = await _hc.PostAsync(uploadUrl, dataContent);           
+    var retjson = result.Content.ReadAsStringAsync().Result;
+    Newtonsoft.Json.Linq.JObject json = Newtonsoft.Json.Linq.JObject.Parse(retjson);
+    bool ok = json["zt"].ToObject<int>() == 1;
+
+    if (ok)
+        return 1;
+}catch(Exception e){
+    var t = e.Message.Length;
+}
+
+可能是服务器程序不支持部分功能，而HttpClient未做特殊处理，而导致的异常。
+参见
+https://github.com/dotnet/corefx/issues/24683
+
+摘抄程序
+------------------
+using System;
+using System.Net;
+using System.Net.Http;
+
+class Program
+{
+    public static void Main()
+    {
+        using (var client = new HttpClient(new HttpClientHandler { Credentials = CredentialCache.DefaultCredentials }))
+        {
+            HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Post, "https://tfsserver/tfs/proj")
+            {
+                Content = new StringContent("a"),
+                Version = HttpVersion.Version11
+            };
+            // Original repro: I am expecting a 401 status code,
+            //   but different HttpWebRequestException (with inner "The request was aborted: The connection was closed unexpectedly." exception) is thrown instead
+            HttpResponseMessage response = client.SendAsync(request).Result;
+        }
+    }
+}
+---------------------------------
+
+对付这种异常的方法就是
+It does not repro in these cases:
+
+ 1.-- If POST request is without body (delete line Content = new StringContent("a"),)
+ 2.-- If Credentials = CredentialCache.DefaultCredentials is not set in HttpClientHandler
+ 3.-- If request version is HTTP/1.0: Version = HttpVersion.Version10
+
+
+方法3中，因为PostAsync无法直接支持PostAsync修改，所以需要用SendAsync来自己构造方法
+Version = HttpVersion.Version10
+
+
+
