@@ -47,8 +47,8 @@ namespace ms_ui
         {
             InitializeComponent();
 
-            //config_common();            
-            tim();
+            config_common();            
+            //tim();
             Common.configLogger();
         }
         public void tim()
