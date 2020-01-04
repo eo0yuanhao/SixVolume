@@ -10,9 +10,7 @@
     <Window.Resources>
         <local:IconConverter x:Key="iconConverter"/>
         <local:MarkConverter x:Key="markConverter"/>
-        <Style x:Key="itemDoubleClick_style" TargetType="{x:Type ListViewItem}">
-            <EventSetter Event="MouseDoubleClick" Handler="ListViewItem_DoubleClick" />
-        </Style>
+
         <Style x:Key="vvv3" TargetType="{x:Type ListView}">
 
         </Style>
@@ -48,7 +46,8 @@
                 </TreeView.ItemTemplate>
             </TreeView>
             <ListView x:Name="listView" 
-                ItemContainerStyle="{StaticResource itemDoubleClick_style}" MouseDown="ListView_MouseDown" SelectionChanged="listView_SelectionChanged" 
+
+                      MouseDown="ListView_MouseDown" SelectionChanged="listView_SelectionChanged" 
                 >
                 <ListView.View>
                     <GridView>

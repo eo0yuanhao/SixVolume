@@ -9,7 +9,7 @@ using System.Security.Cryptography;
 using System.Threading.Tasks;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Linq;
-using System.Data.SQLite.Linq;
+//using System.Data.SQLite.Linq;
 
 namespace ms_ui
 {
@@ -384,7 +384,7 @@ namespace ms_ui
     {
         public static log4net.ILog ilog;
         public static void configLogger()
-        {
+        {  
             var repo = log4net.LogManager.CreateRepository("me");
             var hier = (log4net.Repository.Hierarchy.Hierarchy)log4net.LogManager.GetRepository("me");
             var app = new log4net.Appender.FileAppender();

@@ -13,15 +13,22 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
-using System.Data.SQLite;
+//using System.Data.SQLite;
 using System.Collections.ObjectModel;
-
+using SQLite;
 namespace ms_ui
 {
     /// <summary>
     /// Interaction logic for MainWindow.xaml
     /// </summary>
     using Pr = Sixpan.Pr;
+    public class Stock
+    {
+        [PrimaryKey, AutoIncrement]
+        public int Id { get; set; }
+        public string Symbol { get; set; }
+    }
+
     public partial class MainWindow : Window
     {
         Sixpan pan = new Sixpan();
@@ -32,14 +39,22 @@ namespace ms_ui
         string _tempPath="./";
         string _tempDB = "sixpan_sqlite.db";
         Guid _rootGuid;
-        System.Data.SQLite.SQLiteConnection _sqlcon;
+        //System.Data.SQLite.SQLiteConnection _sqlcon;
+        SQLiteConnection _sqlcon;// ("a:/foofoo_sqlite.db");
         readonly List<Guid> _markedFiles = new List<Guid>();
         public static Dictionary<int, HashSet<int>> markedFaceFileDict = new Dictionary<int, HashSet<int>>() { { -1, new HashSet<int>() } };
         public MainWindow()
         {
             InitializeComponent();
+
+            //config_common();            
+            tim();
             Common.configLogger();
-            config_common();
+        }
+        public void tim()
+        {
+            _sqlcon = new SQLiteConnection("a:/vvv.db");
+            _sqlcon.CreateTable<Stock>();
         }
         public void config_common()
         {
@@ -62,37 +77,19 @@ namespace ms_ui
             if (last != '/' && last != '\\')
                 _tempPath = _tempPath + '/';
             Common.makeSureDirectoryExist(_tempPath);
-            string dbfile = _tempPath + "sixpan_sqlite.db";                
-            _sqlcon = new SQLiteConnection("data source=" +dbfile);
-            if (!File.Exists(dbfile))
-            {
-                SQLiteConnection.CreateFile(dbfile);
+            string dbfile = _tempPath + "sixpan_sqlite.db";
+            _sqlcon = new SQLiteConnection("a:/vvv.db");
+            _sqlcon.CreateTable<Stock>();
+            //if (!File.Exists(dbfile))
+            //{
 
-                _sqlcon.Open();
-                var cmd = _sqlcon.CreateCommand();
-                cmd.CommandText = @"CREATE TABLE[filesystem](
-                                  [pk] integer primary key AUTOINCREMENT
-                                , [id] guid not null
-                                , [isdir] bit not null
-                                , [size] bigint not null
-                                , [time] datetime not null
-                                , [parent] guid not null
-                                , [name] TEXT
-                                , [path] TEXT)";
-                cmd.ExecuteNonQuery();
-                cmd.Reset();
-                //cmd.CommandText = $"insert into filesystem(id,isdir,size,time,parent,name,path) values({_rootGuid},1,0,{DateTime.Now},{Guid.Empty},'/','/')";
-                //cmd.CommandText = $"insert into filesystem(isdir,size,name,path) values(1,0,'/','/')";
-                //cmd.ExecuteNonQuery();
-                _sqlcon.Close();
-            }            
-            //System.Data.SQLite.Linq.SQLiteProviderFactory
-            //else    _sqlcon = new SQLiteConnection("data source=" + dbfile);
-            //var xx = new DataModels.SixpanDB(dbfile);
-            ms_ui.DataContext.ConnectionString = "data source=" + dbfile;
+            //    _sqlcon = new SQLiteConnection("a:/vvv.db");
+            //    _sqlcon.CreateTable<Stock>();
+            //}else
+            //{
+            //    _sqlcon = new SQLiteConnection(dbfile);
+            //}
 
-            // var t = xx.Filesystems.Count();
-            // DataModels.SixpanDB.SetConnectionString(xx.ConfigurationString, "data source=" + dbfile);
         }
 
         public async Task<bool> login()
@@ -216,12 +213,13 @@ namespace ms_ui
             Guid id=Guid.Empty;
             try
             {            
-                var db = new DataContext();
+                //var db = new DataContext();
                 if (pr.isId)
                 {
                     id = Guid.Parse(pr.Value);
                 }else {                  
-                    var ids = from x in db.FileSystem where x.path == pr.Value select x.id;
+                    //var ids = from x in db.FileSystem where x.path == pr.Value select x.id;
+                    var ids = from x in _sqlcon.Table<Filesystem>() where x.path == pr.Value select x.id;
                     id = ids.First();
                 }
             }
@@ -231,9 +229,10 @@ namespace ms_ui
             }
             if (!db_needupdate_parent)
             {
-                var db = new DataContext();
-                var filebases = db.FileSystem.Where(x => x.parent == id);
-                    
+                //var db = new DataContext();
+                //var filebases = db.FileSystem.Where(x => x.parent == id);
+                var filebases = _sqlcon.Table<Filesystem>().Where(x => x.parent == id);
+
                 //var filebases = from x in db.FileSystem where x.parent == id select x;
                 if (filebases.Count() == 0)
                 {
@@ -276,8 +275,9 @@ namespace ms_ui
         private void updateDB(VDirectory dir,bool updateParent,bool updateChild)
         {            
             var ls = new List<Filesystem>();
-            var db = new DataContext();
-            var t = from x in db.FileSystem where x.id == dir.id select x;
+            //var db = new DataContext();
+            //var t = from x in db.FileSystem where x.id == dir.id select x;
+            var t = from x in _sqlcon.Table<Filesystem>() where x.id == dir.id select x;
             if (t.Count() == 0 && updateParent)
             {
                 Filesystem fs = new Filesystem()
@@ -294,46 +294,56 @@ namespace ms_ui
                 //db.Add(fs);
                 //db.SaveChanges();
             }
-            void insertFiles(List<Filesystem> ls)
+            //void insertFiles(List<Filesystem> ls)
+            //{
+            //    if (ls.Count == 0)
+            //        return;
+            //    _sqlcon.Open();
+            //    var cmd = _sqlcon.CreateCommand();
+            //    cmd.CommandText = "insert into Filesystem(id,isdir,size,time,parent,name,path) values(@id,@isdir,@size,@time,@parent,@name,@path)";
+            //    System.Data.SQLite.SQLiteParameter addParam(string name)
+            //    {
+            //        var r = cmd.CreateParameter();
+            //        r.ParameterName = name;
+            //        cmd.Parameters.Add(r);
+            //        return r;
+            //    }
+
+            //    var id = addParam("@id");
+            //    var isdir = addParam("@isdir");
+            //    var size = addParam("@size");
+            //    var time = addParam("@time");
+            //    var parent = addParam("@parent");
+            //    var name = addParam("@name");
+            //    var path = addParam("@path");
+
+            //    foreach ( var x in ls)
+            //    {
+            //        id.Value = x.id;
+            //        isdir.Value = x.isdir;
+            //        name.Value = x.name;
+            //        size.Value = x.size;
+            //        path.Value = x.path;
+            //        parent.Value = x.parent;
+            //        time.Value = x.time;
+            //        cmd.ExecuteNonQuery();
+            //    }
+            //    _sqlcon.Close();
+            //}
+            void insertFiles2(List<Filesystem> ls)
             {
                 if (ls.Count == 0)
                     return;
-                _sqlcon.Open();
-                var cmd = _sqlcon.CreateCommand();
-                cmd.CommandText = "insert into Filesystem(id,isdir,size,time,parent,name,path) values(@id,@isdir,@size,@time,@parent,@name,@path)";
-                System.Data.SQLite.SQLiteParameter addParam(string name)
-                {
-                    var r = cmd.CreateParameter();
-                    r.ParameterName = name;
-                    cmd.Parameters.Add(r);
-                    return r;
-                }
-
-                var id = addParam("@id");
-                var isdir = addParam("@isdir");
-                var size = addParam("@size");
-                var time = addParam("@time");
-                var parent = addParam("@parent");
-                var name = addParam("@name");
-                var path = addParam("@path");
-
-                foreach ( var x in ls)
-                {
-                    id.Value = x.id;
-                    isdir.Value = x.isdir;
-                    name.Value = x.name;
-                    size.Value = x.size;
-                    path.Value = x.path;
-                    parent.Value = x.parent;
-                    time.Value = x.time;
-                    cmd.ExecuteNonQuery();
-                }
-                _sqlcon.Close();
+                _sqlcon.InsertAll(ls);
             }
+
+
+
+
 
             if (!updateChild)
             {
-                insertFiles(ls);
+                insertFiles2(ls);
                 return;
             }
 
@@ -371,7 +381,7 @@ namespace ms_ui
             //foreach (var x in ls)
             //    db.FileSystem.Add(x);
             //db.SaveChanges();
-            insertFiles(ls);
+            insertFiles2(ls);
         }
 
         private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
