@@ -20,9 +20,23 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Include="C:\Users\dell\.nuget\packages\linq2db.sqlite\3.0.0-preview.1\contentFiles\any\any\LinqToDB.Templates\CopyMe.SQLite.generated.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>CopyMe.SQLite.tt</DependentUpon>
+    </Compile>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="linq2db.SQLite" Version="3.0.0-preview.1" />
     <PackageReference Include="log4net" Version="2.0.8" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="3.1.0-preview2.19525.5" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="3.1.0-preview2.19525.5" />
     <PackageReference Include="Nett" Version="0.13.0" />
     <PackageReference Include="Newtonsoft.Json" Version="12.0.2" />
+    <PackageReference Include="System.Data.SQLite" Version="1.0.112" />
+    <PackageReference Include="System.Data.SQLite.EF6" Version="1.0.112" />
+    <PackageReference Include="System.Data.SQLite.Linq" Version="1.0.112" />
   </ItemGroup>
 
   <ItemGroup>
@@ -36,6 +50,10 @@
     <Resource Include="res\textfile.ico" />
     <Resource Include="res\upload.ico" />
     <Resource Include="res\video.ico" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Service Include="{508349b6-6b84-4df5-91f0-309beebad82d}" />
   </ItemGroup>
 
 </Project>

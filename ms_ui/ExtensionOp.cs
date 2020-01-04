@@ -7,6 +7,9 @@ using System.Net;
 using System.Text;
 using System.Security.Cryptography;
 using System.Threading.Tasks;
+using System.ComponentModel.DataAnnotations.Schema;
+using System.Linq;
+using System.Data.SQLite.Linq;
 
 namespace ms_ui
 {
@@ -26,6 +29,9 @@ namespace ms_ui
             get{ return _marked;  }
             set{ _marked = value;   }
         }
+        public string path { get; set; }
+        public Guid parentId { get; set; }
+        public DateTime ModifiedTime { get; set; }
     }
     public class VFile : VFileBase
     {
@@ -33,7 +39,7 @@ namespace ms_ui
         public long Size { get; set; }
         //public int id;
         //bool _marked;
-        public DateTime ModifiedTime { get; set; }
+
         public override IconType IconType
         {
             get
@@ -108,7 +114,7 @@ namespace ms_ui
             if (PropertyChanged != null)
                 PropertyChanged(this, e);
         }
-        public DateTime ModifiedTime { get; set; }
+        //public DateTime ModifiedTime { get; set; }
         public override IconType IconType { get => IconType.Dir; }
     }
 
@@ -391,7 +397,7 @@ namespace ms_ui
             lay.ActivateOptions();
             hier.Root.AddAppender(app);
             hier.Configured = true;
-            ilog = log4net.LogManager.GetLogger(typeof(MainWindow));
+            ilog = log4net.LogManager.GetLogger("me", "hah_妈蛋，好辛苦");// typeof(MainWindow));
             ilog.Info("config ok!");
         }
         public static T firstCol<T>(IEnumerable<T> e)
@@ -399,6 +405,24 @@ namespace ms_ui
             var en = e.GetEnumerator();
             en.MoveNext();
             return en.Current;
+        }
+        public static void makeSureDirectoryExist(string dirPath)
+        {
+            if (!Directory.Exists(dirPath))
+            {
+                var parentDir = Directory.GetParent(dirPath);
+                if (!parentDir.Exists)
+                    makeSureDirectoryExist(parentDir.FullName);
+                else
+                {
+                    if (dirPath.Length <= 3)
+                        return;
+                    Directory.CreateDirectory(dirPath);
+                    //parentDir.CreateSubdirectory(dirPath);
+                }
+                    
+
+            }
         }
     }
     internal class UrlSafeBase64
@@ -467,31 +491,20 @@ namespace ms_ui
             return sb.ToString();
         }
     }
-    public class TTClass
-    {
-        public static string Post(Dictionary<string, string> headers, byte[] data, string url)
-        {
-            HttpWebRequest req = WebRequest.CreateHttp(url);
-            req.Method = "POST";
-            foreach (var h in headers)
-            {
-                req.Headers.Add(h.Key, h.Value);
-            }
-            req.ContentLength = data.Length;
-            req.ContentType = "application/octet-stream";
-            var reqStm = req.GetRequestStream();
-            reqStm.Write(data, 0, data.Length);
-            reqStm.Close();
-            HttpWebResponse resp = null;
-            try
-            {
-                resp = (HttpWebResponse)req.GetResponse();
-            }
-            catch (Exception e) { Console.WriteLine(e.Message); }
-            var rstm = resp.GetResponseStream();
-            var sr = new StreamReader(rstm);
-            var rets = sr.ReadToEnd();
-            return rets;
-        }
-    }
+
+
+    //[Table("Filesytem")]
+    //public class Filesytem
+    //{
+    //    //[Column( TypeName = "pk")]
+    //    public UInt32 pk;
+    //    //[Column(TypeName = "id")]
+    //    public Guid id;
+    //    public bool isdir;
+    //    public UInt64 size;
+    //    public DateTime time;
+    //    public Guid paretn;
+    //    public string name;
+    //    public string path;
+    //}
 }

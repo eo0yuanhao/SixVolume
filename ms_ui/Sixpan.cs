@@ -15,9 +15,54 @@ namespace ms_ui
     using JObject = Newtonsoft.Json.Linq.JObject;
     using JToken = Newtonsoft.Json.Linq.JToken;
     using Enumerable = System.Linq.Enumerable;
-    class Sixpan
+    public class Sixpan
     {
-        
+        public class Pr
+        {
+            class ID
+            {
+                public string identity;
+            }
+            class Path
+            {
+                public string path;
+            }
+            object outclass;
+            Guid _guid;
+            string _str;
+            bool _isId;
+            public bool isId { get => _isId; }
+            public static Pr from(string path)
+            {
+                return new Pr(path);
+            }
+            public static Pr from(Guid id)
+            {
+                return new Pr(id);
+            }
+            public object Output
+            {
+                get
+                {
+                    if (_isId)
+                        return new ID() { identity = _guid.ToString("N") };
+                    else
+                        return new Path() { path = _str };
+                }
+            }
+            public string Key { get => _isId ? "identity" : "path"; }
+            public string Value { get => _isId ? _guid.ToString("N") : _str.ToString(); }
+            public Pr(Guid guid)
+            {
+                _isId = true;
+                _guid = guid;
+            }
+            public Pr(string path)
+            {
+                _isId = false;
+                _str = path;
+            }
+        }
 
         string recentToken;
         string apihost = "https://api.6pan.cn";
@@ -185,11 +230,6 @@ namespace ms_ui
             return true;
         }
 
-        public bool download(int fileid,string filepath)
-        {
-
-            return true;
-        }
         public async Task<string> mkdir(string dirname,string parentId)
         {
             var data = new {  parent = parentId, name = dirname };
@@ -297,25 +337,21 @@ namespace ms_ui
             //await upload_mkfile(uuid, stream.Length, ctxs, host, uploadToken);
             //updateToken(resp);
         }
-        public async Task download(string vfile_path,string localPath)
+        public async Task download(Pr path_or_id,string localPath)
         {
-            using (var stm = await acquireFileStream(vfile_path))
+            using (var stm = await acquireFileStream(path_or_id))
             using (var fs = File.Create(localPath))
                 await stm.CopyToAsync(fs);
         }        
-        public async Task<Stream> acquireFileStream(string path)
+        public async Task<Stream> acquireFileStream(Pr path_or_id)
         {
-            JObject jo = await acquireFileInfo_byPath(path);
+            JObject jo = await acquireFileInfo(path_or_id);
             var addr = jo["downloadAddress"].ToString();
             var resp = await _hc.GetAsync(addr);
             Stream stm = await resp.Content.ReadAsStreamAsync();
             return stm;
         }
-        public async Task<JObject> acquireFileInfo_byPath(string path)
-        {
-            var data = new { path = path };
-            return await acquireFileInfo(data);
-        }
+
         private JObject ensuredJsonResult(JObject json)
         {
             if (!json["success"].ToObject<bool>())
@@ -326,51 +362,59 @@ namespace ms_ui
         {
             return json["success"].ToObject<bool>();
         }
-        private async Task<JObject> acquireFileInfo(object requestObject)
+        private async Task<JObject> acquireFileInfo(Pr path_or_id)
         {
-            var json = await jsonPost("/v2/files/get", requestObject);
+            var data = path_or_id.Output;
+            var json = await jsonPost("/v2/files/get", data);
             return ensuredJsonResult(json);
         }
-        public async Task<JObject> acquireFileInfo_byId(string id)
+          
+        private JObject _addfield(object data,object content)
         {
-            var data = new { identity = id };
-            return await acquireFileInfo(data);
-        }            
-        public async Task<JObject> acquireChildren_byPage(string path, int pageNo,int onePageSize,bool dirOnly=false,int filetype=0)
+            var jdata = JObject.FromObject(data);
+            jdata.AddAfterSelf(content);
+            return jdata;
+        }        
+        private JObject _addPr(object data,Pr pr)
         {
-            var data = new
+            var jdata = JObject.FromObject(data);
+            jdata.Add(pr.Key,pr.Value);
+            return jdata;
+        }
+        public async Task<JObject> acquireChildren_byPage(Pr curdir, int pageNo,int onePageSize,bool dirOnly=false,int filetype=0)
+        {
+            var data = new 
             {
-                path = path,
                 page = pageNo,
                 pageSize = onePageSize
-            };
-            var json = await jsonPost("/v2/files/page", data);
-            return ensuredJsonResult(json);
-
+            };//ExpandoObject  , DynamicObject
+            var json = await jsonPost("/v2/files/page", _addPr(data, curdir));
+            return ensuredJsonResult(json);            
         }
-        public async Task<List<JObject>> acquireAllChildren(string path) {
+        public async Task<List<JObject>> acquireAllChildren(Pr curdir) {
             int ipage = 1;
             Newtonsoft.Json.Linq.JArray listOb = null;
-            int onePageSize = 20;
+            int onePageSize = 20;       
             var list = new List<JObject>();
             do {
-                var result = await acquireChildren_byPage(path, ipage, onePageSize);
-                listOb = result["list"].ToObject<Newtonsoft.Json.Linq.JArray>();            
+                var result = await acquireChildren_byPage(curdir, ipage, onePageSize);
+                listOb = result["list"].ToObject<Newtonsoft.Json.Linq.JArray>();
                 foreach(var o in listOb.Children<JObject>())
                 {
                     list.Add(o);
                 }
+                ipage++;
             } while (listOb.Count == onePageSize);
             return list;
         }
-        public async Task<bool> upload(string vdir_path,string filepath,string filename=null)
+        public async Task<bool> upload(Pr vdir_path,string filepath,string filename=null)
         {
             string etag = QETag.calcETag(filepath);
             if (filename == null)
                 filename = System.IO.Path.GetFileName(filepath);
-            var data1 = new { path = vdir_path, hash = etag,name = filename };
-            //await post("/v2/user/login", data1);
-            var json = await jsonPost("/v2/upload/token", data1);            
+            var data = new { hash = etag,name = filename };
+            _addPr(data, vdir_path);
+            var json = await jsonPost("/v2/upload/token", data);
             bool suc = json["success"].ToObject<bool>();
             if (!suc)
                 return false;
@@ -385,15 +429,40 @@ namespace ms_ui
             }
             return true;
         }
-        public async Task<VDirectory> listdir(string path)
+        
+
+        public async Task<VDirectory> listdir(Pr curdir)
         {
-            VDirectory baseDir = new VDirectory();
-            
-            var ls = await acquireAllChildren(path);
-            //VFileBase vf;
+            VDirectory baseDir = null;        
+            //var ls = await acquireAllChildren(curdir);
             ObservableCollection<VDirectory> dirs = new ObservableCollection<VDirectory>();
             ObservableCollection<VFile> files = new ObservableCollection<VFile>();
-            foreach( var f in ls)
+
+            int ipage = 1;
+            Newtonsoft.Json.Linq.JArray listOb = null;
+            int onePageSize = 20;
+            var list = new List<JObject>();
+            do
+            {
+                var result = await acquireChildren_byPage(curdir, ipage, onePageSize);
+                if(result == null)
+                    return null;
+                listOb = result["list"].ToObject<Newtonsoft.Json.Linq.JArray>();
+                foreach (var o in listOb.Children<JObject>())
+                {
+                    list.Add(o);
+                }
+                if(baseDir == null)
+                {
+                    baseDir = new VDirectory();
+                    baseDir.id = Guid.Parse(result["parent"]["identity"].ToString());
+                    string parentid = result["parent"]["parent"].ToString();
+                    baseDir.parentId = String.IsNullOrEmpty(parentid)?Guid.Empty:Guid.Parse(parentid);
+                }
+                ipage++;
+            } while (listOb.Count == onePageSize);
+        
+            foreach ( var f in list)
             {
                 var isDir = f["directory"].ToObject<bool>();
                 var name = f["name"].ToString();
@@ -401,27 +470,28 @@ namespace ms_ui
                 var id = f["identity"].ToString();
                 var share = f["share"].ToObject<bool>();
                 var size = f["size"].ToObject<long>();
+                var path = f["path"].ToString();
+                var parent = f["parent"].ToString();
+                VFileBase x = null;
                 if (isDir)
                 {
-                    var x = new VDirectory()
-                    {
-                        id = new Guid(id),
-                        Name = name,
-                        ModifiedTime = new DateTime(long.Parse(mtime))
-                    };
-                    dirs.Add(x);
-                }else
-                {
-                    var x = new VFile()
-                    {
-                        id = new Guid(id),
-                        Name = name, 
-                        ModifiedTime = new DateTime(long.Parse(mtime)),
-                        Size = size                      
-                    };
-                    files.Add(x);
+                    var o = new VDirectory() { id = new Guid(id) };
+                    x = o;
+                    dirs.Add(o);
                 }
+                else
+                {
+                    var o = new VFile();
+                    x = o;
+                    files.Add(o);
+                }
+                x.id = new Guid(id);
+                x.Name = name;
+                x.ModifiedTime = new DateTime(long.Parse(mtime));
+                x.path = path;
+                x.parentId = new Guid(parent);
             }
+            
             baseDir.SubDirs = dirs;
             baseDir.Files = files;
             return baseDir;
@@ -432,20 +502,39 @@ namespace ms_ui
             //var data3 = new { source = new[] { new { path = path } } };
             var data = new { source = from x in path select ("path", x) };
             var json = await jsonPost("/v2/files/delete", data);
-            return _ensure(json);            
-        }        
+            return _ensure(json);
+        }             
+        public async Task<bool> rm(IEnumerable<Pr> path_or_id)
+        {
+            var data = new { source = from x in path_or_id select x.Output };
+            var json = await jsonPost("/v2/files/delete", data);
+            return _ensure(json);
+        }   
         public async Task<bool> copy(IEnumerable<string> srcs,string dst)
         {
             var data = new { source = srcs.Select((s)=> ("path",s)) ,destination= new { path=dst} };
             var json = await jsonPost("/v2/files/copy", data);
-            return _ensure(json);            
+            return _ensure(json);
         }        
         public async Task<bool> move(IEnumerable<string> srcs,string dst)
         {
             var data = new { source = srcs.Select((s)=> ("path",s)) ,destination= new { path=dst} };
             var json = await jsonPost("/v2/files/move", data);
             return _ensure(json);            
+        }           
+        public async Task<bool> move(IEnumerable<Guid> srcs,string dst)
+        {
+            var data = new { source = srcs.Select((s)=> ("identity",s)) ,destination= new { path=dst} };
+            var json = await jsonPost("/v2/files/move", data);
+            return _ensure(json);            
         }        
+
+        public async Task<bool> move(IEnumerable<Pr> srcs,Pr dst) 
+        {//ExpandoObject  , DynamicObject
+            var data = new { source = srcs.Select((s)=> s.Output) ,destination= dst.Output };
+            var json = await jsonPost("/v2/files/move", data);
+            return _ensure(json);            
+        }   
         public async Task<bool> rename(string src,string dst)
         {
             var data = new { path = src ,name = dst};

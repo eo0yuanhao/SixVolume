@@ -32,7 +32,8 @@
         <Grid DockPanel.Dock="Right" HorizontalAlignment="Left" VerticalAlignment="Top" Width="266">
             <Button x:Name="loginBtn" Content="login" HorizontalAlignment="Left" Margin="19,29,0,0" VerticalAlignment="Top" Width="75" Click="LoginBtn_Click" />
             <Slider x:Name="progressSlider" Minimum="0" Maximum="1000" HorizontalAlignment="Left" Margin="3,319,0,0" VerticalAlignment="Top" Width="199"/>
-            <Button Content="list" HorizontalAlignment="Left" Margin="30,79,0,0" VerticalAlignment="Top" Width="38" Click="Button_Click"/>
+            <Button x:Name="listBtn" Content="list" HorizontalAlignment="Left" Margin="19,154,0,0" VerticalAlignment="Top" Width="38" Click="listBtn_Click"/>
+            <Button x:Name="refreshBtn"  Content="refresh" HorizontalAlignment="Left" Margin="19,94,0,0" VerticalAlignment="Top" Click="refreshBtn_Click"/>
         </Grid>
         <DockPanel LastChildFill="True" >
             <DockPanel  DockPanel.Dock="Top" Height="24" VerticalAlignment="Top" >

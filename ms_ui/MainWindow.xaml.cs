@@ -13,12 +13,15 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
+using System.Data.SQLite;
+using System.Collections.ObjectModel;
 
 namespace ms_ui
 {
     /// <summary>
     /// Interaction logic for MainWindow.xaml
     /// </summary>
+    using Pr = Sixpan.Pr;
     public partial class MainWindow : Window
     {
         Sixpan pan = new Sixpan();
@@ -27,13 +30,16 @@ namespace ms_ui
         string username;
         string password;
         string _tempPath="./";
+        string _tempDB = "sixpan_sqlite.db";
+        Guid _rootGuid;
+        System.Data.SQLite.SQLiteConnection _sqlcon;
+        readonly List<Guid> _markedFiles = new List<Guid>();
         public static Dictionary<int, HashSet<int>> markedFaceFileDict = new Dictionary<int, HashSet<int>>() { { -1, new HashSet<int>() } };
         public MainWindow()
         {
             InitializeComponent();
             Common.configLogger();
             config_common();
-
         }
         public void config_common()
         {
@@ -48,10 +54,47 @@ namespace ms_ui
                 username = toml["username"].ToString();
                 password = toml["password"].ToString();
                 _tempPath = toml["tempPath"].ToString();
+                _rootGuid = Guid.Parse(toml["root_dir_guid"].ToString());
                 //dl_filePath = toml["downloadPath"].ToString();
                 //sys_dir_id = toml["_DIR_ID"].Get<int>();
             }
+            var last = _tempPath.Last();
+            if (last != '/' && last != '\\')
+                _tempPath = _tempPath + '/';
+            Common.makeSureDirectoryExist(_tempPath);
+            string dbfile = _tempPath + "sixpan_sqlite.db";                
+            _sqlcon = new SQLiteConnection("data source=" +dbfile);
+            if (!File.Exists(dbfile))
+            {
+                SQLiteConnection.CreateFile(dbfile);
+
+                _sqlcon.Open();
+                var cmd = _sqlcon.CreateCommand();
+                cmd.CommandText = @"CREATE TABLE[filesystem](
+                                  [pk] integer primary key AUTOINCREMENT
+                                , [id] guid not null
+                                , [isdir] bit not null
+                                , [size] bigint not null
+                                , [time] datetime not null
+                                , [parent] guid not null
+                                , [name] TEXT
+                                , [path] TEXT)";
+                cmd.ExecuteNonQuery();
+                cmd.Reset();
+                //cmd.CommandText = $"insert into filesystem(id,isdir,size,time,parent,name,path) values({_rootGuid},1,0,{DateTime.Now},{Guid.Empty},'/','/')";
+                //cmd.CommandText = $"insert into filesystem(isdir,size,name,path) values(1,0,'/','/')";
+                //cmd.ExecuteNonQuery();
+                _sqlcon.Close();
+            }            
+            //System.Data.SQLite.Linq.SQLiteProviderFactory
+            //else    _sqlcon = new SQLiteConnection("data source=" + dbfile);
+            //var xx = new DataModels.SixpanDB(dbfile);
+            ms_ui.DataContext.ConnectionString = "data source=" + dbfile;
+
+            // var t = xx.Filesystems.Count();
+            // DataModels.SixpanDB.SetConnectionString(xx.ConfigurationString, "data source=" + dbfile);
         }
+
         public async Task<bool> login()
         {
 
@@ -74,18 +117,35 @@ namespace ms_ui
         }
 
 
-        private void ListViewItem_DoubleClick(object sender ,RoutedEventArgs e)
+        private async  void ListViewItem_DoubleClick(object sender, RoutedEventArgs e)
         {
-           
+            var dir = listView.SelectedItem as VDirectory;
+            if(dir != null)
+            {
+                //Task.Run(async () => await setCurrentDir(Pr.from(dir.id)) ).Wait();
+                //Task.Run(async ()=> workdir = await pan.listdir(Pr.from(dir.id))).Wait();
+                //workdir = await pan.listdir(Pr.from(dir.id));
+                //listView.ItemsSource = workdir.Children;
+                await setCurrentDir(Pr.from(dir.id));
+            }
         }
+        //public async Task ListViewItem_DoubleClick(object sender, MouseButtonEventArgs e)
+        //{
 
-        public void ListViewItem_DoubleClick(object sender, MouseButtonEventArgs e)
-        {
-            this.Title = "double click";
-        }
+        //}
 
         private void context_MarkFile(object sender, RoutedEventArgs e)
         {
+            foreach (VFileBase x in listView.SelectedItems)
+            {
+                bool b = x.Marked = !x.Marked;
+                if (b)
+                    _markedFiles.Add(x.id);
+                else _markedFiles.Remove(x.id);
+
+            }
+            listView.ItemsSource = null;
+            listView.ItemsSource = workdir.Children;
 
         }
 
@@ -104,34 +164,214 @@ namespace ms_ui
             listView.SelectedIndex = -1;
         }
 
-        private void context_DownloadFaceFile(object sender, RoutedEventArgs e)
+        private async void context_DownloadFaceFile(object sender, RoutedEventArgs e)
         {
-
+            var p = from VFile x in listView.SelectedItems where x != null select Pr.@from(x.id) ;
+            foreach (var v in p)
+                await pan.download(v, _tempPath);
         }
 
-        private void context_UploadFaceFile(object sender, RoutedEventArgs e)
+        private async void context_UploadFaceFile(object sender, RoutedEventArgs e)
         {
-
+            var dlg = new Microsoft.Win32.OpenFileDialog();
+            dlg.Multiselect = true;
+            if (!dlg.ShowDialog().GetValueOrDefault())
+                return;
+            var uploadfiles = dlg.FileNames;
+            var path = Pr.from(workdir.id);
+            foreach( var v in uploadfiles )
+                await pan.upload(path, v);
         }
 
-        private void context_DeleteFile(object sender, RoutedEventArgs e)
+        private async void context_DeleteFile(object sender, RoutedEventArgs e)
         {
-
+            var p =   from VFileBase x in listView.SelectedItems select Pr.@from(x.id) ;
+            await pan.rm(p);
         }
 
-        private void context_MoveMarkedFile(object sender, RoutedEventArgs e)
+        private async void context_MoveMarkedFile(object sender, RoutedEventArgs e)
         {
-
+            var p = from x in _markedFiles select Pr.@from(x) ;
+            await pan.move(p, Pr.from(workdir.id));
+            _markedFiles.Clear();
         }
 
-        private async void Button_Click(object sender, RoutedEventArgs e)
+        private async void listBtn_Click(object sender, RoutedEventArgs e)
         {
-            //Newtonsoft.Json.Linq.JObject obj = await pan.acquireFileInfo_byPath("/online.ts.ppt");
-            //Title = $"{obj["size"].ToString()}";
+            //var db = new DataModels.SixpanDB("a:/vfs/sixpan_work.sqlite");
+            //if (_rootGuid == Guid.Empty)
+            //    _rootGuid = db.Filesystems.Where(x => x.Path == "/").Select(x => x.Id).First();// from x in db.Filesystems where x.Path == "/" select (x.Id) first
 
-            var curdir = await pan.listdir("/backup");
+            await setCurrentDir(Pr.from("/"));
+        }
+        public async Task setCurrentDir(Pr pr)
+        {
+
+            //var files = from x in db.FileSystem where x.parent == _rootGuid select x;
+            if (!pr.isId && pr.Value == "/")
+                pr = Pr.from(_rootGuid);
+            VDirectory curdir = null;
+            bool db_needupdate_parent = false;
+            bool db_needupdate_child = true;
+            Guid id=Guid.Empty;
+            try
+            {            
+                var db = new DataContext();
+                if (pr.isId)
+                {
+                    id = Guid.Parse(pr.Value);
+                }else {                  
+                    var ids = from x in db.FileSystem where x.path == pr.Value select x.id;
+                    id = ids.First();
+                }
+            }
+            catch( Exception)
+            {
+                db_needupdate_parent = true;
+            }
+            if (!db_needupdate_parent)
+            {
+                var db = new DataContext();
+                var filebases = db.FileSystem.Where(x => x.parent == id);
+                    
+                //var filebases = from x in db.FileSystem where x.parent == id select x;
+                if (filebases.Count() == 0)
+                {
+                    db_needupdate_child = true;
+                }else
+                {
+                    db_needupdate_child = false;
+                    curdir = new VDirectory();
+                    curdir.id = id;
+                    var files  = from x in filebases where (x.isdir == false) select (new VFile() { id = x.id, ModifiedTime = x.time, Name = x.name, Size = x.size}); ;
+                    var dirs = from x in filebases where (x.isdir == true) select (new VDirectory() { id = x.id, ModifiedTime = x.time, Name = x.name }); ;
+                    ObservableCollection<VDirectory> td = new ObservableCollection<VDirectory>();
+                    ObservableCollection<VFile> tf = new ObservableCollection<VFile>();
+                    foreach (var x in files)
+                        tf.Add(x);
+                    foreach (var x in dirs)
+                        td.Add(x);
+                    curdir.Files = tf;
+                    curdir.SubDirs = td;
+
+                }
+            }
+
+            if(db_needupdate_parent || db_needupdate_child)
+            {
+                curdir = await pan.listdir(pr);
+                if(curdir.Files.Count()!=0 || curdir.SubDirs.Count() != 0)
+                {
+                    updateDB(curdir,db_needupdate_parent,db_needupdate_child);
+                }
+            }
+            var mfs = from x in _markedFiles join y in curdir.Files on x equals y.id select y;
+            foreach (var x in mfs)
+                x.Marked = true;
             listView.ItemsSource = curdir.Children;
-            workdir = curdir;
+            workdir = curdir;   
+            
+        }
+
+        private void updateDB(VDirectory dir,bool updateParent,bool updateChild)
+        {            
+            var ls = new List<Filesystem>();
+            var db = new DataContext();
+            var t = from x in db.FileSystem where x.id == dir.id select x;
+            if (t.Count() == 0 && updateParent)
+            {
+                Filesystem fs = new Filesystem()
+                {
+                    id = dir.id,
+                    isdir = true,
+                    name = dir.Name,
+                    size = 0,
+                    path = dir.path,
+                    parent = dir.parentId,
+                    time = dir.ModifiedTime
+                };
+                ls.Add(fs);
+                //db.Add(fs);
+                //db.SaveChanges();
+            }
+            void insertFiles(List<Filesystem> ls)
+            {
+                if (ls.Count == 0)
+                    return;
+                _sqlcon.Open();
+                var cmd = _sqlcon.CreateCommand();
+                cmd.CommandText = "insert into Filesystem(id,isdir,size,time,parent,name,path) values(@id,@isdir,@size,@time,@parent,@name,@path)";
+                System.Data.SQLite.SQLiteParameter addParam(string name)
+                {
+                    var r = cmd.CreateParameter();
+                    r.ParameterName = name;
+                    cmd.Parameters.Add(r);
+                    return r;
+                }
+
+                var id = addParam("@id");
+                var isdir = addParam("@isdir");
+                var size = addParam("@size");
+                var time = addParam("@time");
+                var parent = addParam("@parent");
+                var name = addParam("@name");
+                var path = addParam("@path");
+
+                foreach ( var x in ls)
+                {
+                    id.Value = x.id;
+                    isdir.Value = x.isdir;
+                    name.Value = x.name;
+                    size.Value = x.size;
+                    path.Value = x.path;
+                    parent.Value = x.parent;
+                    time.Value = x.time;
+                    cmd.ExecuteNonQuery();
+                }
+                _sqlcon.Close();
+            }
+
+            if (!updateChild)
+            {
+                insertFiles(ls);
+                return;
+            }
+
+            foreach (var x in dir.SubDirs)
+            {
+                Filesystem f = new Filesystem()
+                {
+                    id = x.id,
+                    isdir = true,
+                    name = x.Name,
+                    size = 0,
+                    path = x.path,
+                    parent = x.parentId,
+                    time = x.ModifiedTime,                   
+                };
+                ls.Add(f);
+            }
+            foreach (var x in dir.Files)
+            {
+                Filesystem f = new Filesystem()
+                {
+                    id = x.id,
+                    isdir = false,
+                    name = x.Name,
+                    size = x.Size,
+                    path = x.path,
+                    parent = x.parentId,
+                    time = x.ModifiedTime
+                };
+                ls.Add(f);
+            }
+            // AddRange 在SaveChanges时，会出现异常，不知道原因，暂时只能一条一条添加了
+            //db.FileSystem.AddRange(ls);
+            //db.Add(ls[0]);
+            //foreach (var x in ls)
+            //    db.FileSystem.Add(x);
+            //db.SaveChanges();
+            insertFiles(ls);
         }
 
         private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
@@ -144,38 +384,15 @@ namespace ms_ui
                 File.WriteAllText("a:/sixpan/token.inf",token);
         }
 
-        private void CmdBox_KeyUp(object sender, KeyEventArgs e)
-        {
-            if (e.Key == Key.Enter)
-            {
-                string[] cmd = cmdBox.Text.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-                switch (cmd[0])
-                {
-                    case "?":
-                        cmd_show_Help();
-                        break;
-                    case "login":
-                        cmd_work_login();
-                        break;
-                    case "mkdir":
-                        cmd_work_mkdir(cmd[1]);
-                        break;
-                    case "logout":
-                        cmd_work_logout(cmd.Count() > 1 ? cmd[1] : null);
-                        break;
-                    case "upload":
-                        cmd_work_upload(cmd.Count() > 1 ? cmd[1] : null);
-                        break;
-                    default:
-                        MessageBox.Show("无效的命令！使用 < ? >获取帮助。");
-                        break;
-
-                }
-            }
-        }
 
         private void listView_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
+
+        }
+
+        private void refreshBtn_Click(object sender, RoutedEventArgs e)
+        {
+
 
         }
     }
