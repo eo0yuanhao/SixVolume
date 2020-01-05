@@ -383,12 +383,12 @@ namespace ms_ui
     class Common
     {
         public static log4net.ILog ilog;
-        public static void configLogger()
+        public static void configLogger(string logFilePath)
         {  
             var repo = log4net.LogManager.CreateRepository("me");
             var hier = (log4net.Repository.Hierarchy.Hierarchy)log4net.LogManager.GetRepository("me");
             var app = new log4net.Appender.FileAppender();
-            app.File = "a:/sixpan/info.log";
+            app.File = logFilePath;
             app.AppendToFile = true;
 
             var lay = new log4net.Layout.PatternLayout("%date - %message%newline"); ;

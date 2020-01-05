@@ -337,7 +337,7 @@ namespace ms_ui
             //await upload_mkfile(uuid, stream.Length, ctxs, host, uploadToken);
             //updateToken(resp);
         }
-        public async Task download(Pr path_or_id,string localPath)
+        public async Task download(Pr path_or_id,string localPath )
         {
             using (var stm = await acquireFileStream(path_or_id))
             using (var fs = File.Create(localPath))
@@ -388,7 +388,7 @@ namespace ms_ui
                 page = pageNo,
                 pageSize = onePageSize
             };//ExpandoObject  , DynamicObject
-            var json = await jsonPost("/v2/files/page", _addPr(data, curdir));
+             var json = await jsonPost("/v2/files/page", _addPr(data, curdir));
             return ensuredJsonResult(json);            
         }
         public async Task<List<JObject>> acquireAllChildren(Pr curdir) {
@@ -444,7 +444,7 @@ namespace ms_ui
             var list = new List<JObject>();
             do
             {
-                var result = await acquireChildren_byPage(curdir, ipage, onePageSize);
+                 var result = await acquireChildren_byPage(curdir, ipage, onePageSize);
                 if(result == null)
                     return null;
                 listOb = result["list"].ToObject<Newtonsoft.Json.Linq.JArray>();
@@ -455,9 +455,12 @@ namespace ms_ui
                 if(baseDir == null)
                 {
                     baseDir = new VDirectory();
-                    baseDir.id = Guid.Parse(result["parent"]["identity"].ToString());
-                    string parentid = result["parent"]["parent"].ToString();
+                    var dir = result["parent"];
+                    baseDir.id = Guid.Parse(dir["identity"].ToString());
+                    string parentid = dir["parent"].ToString();
                     baseDir.parentId = String.IsNullOrEmpty(parentid)?Guid.Empty:Guid.Parse(parentid);
+                    baseDir.Name = dir["name"].ToString();
+                    baseDir.path = dir["path"].ToString();
                 }
                 ipage++;
             } while (listOb.Count == onePageSize);
@@ -466,7 +469,7 @@ namespace ms_ui
             {
                 var isDir = f["directory"].ToObject<bool>();
                 var name = f["name"].ToString();
-                var mtime = f["mtime"].ToString();
+                var mtime = f["mtime"].ToString(); 
                 var id = f["identity"].ToString();
                 var share = f["share"].ToObject<bool>();
                 var size = f["size"].ToObject<long>();
@@ -483,6 +486,7 @@ namespace ms_ui
                 {
                     var o = new VFile();
                     x = o;
+                    o.Size = size;
                     files.Add(o);
                 }
                 x.id = new Guid(id);

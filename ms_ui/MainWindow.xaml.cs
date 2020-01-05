@@ -22,13 +22,6 @@ namespace ms_ui
     /// Interaction logic for MainWindow.xaml
     /// </summary>
     using Pr = Sixpan.Pr;
-    public class Stock
-    {
-        [PrimaryKey, AutoIncrement]
-        public int Id { get; set; }
-        public string Symbol { get; set; }
-    }
-
     public partial class MainWindow : Window
     {
         Sixpan pan = new Sixpan();
@@ -48,21 +41,12 @@ namespace ms_ui
             InitializeComponent();
 
             config_common();            
-            //tim();
-            Common.configLogger();
+    
+            Common.configLogger(_tempPath + "info.log");
         }
-        public void tim()
-        {
-            _sqlcon = new SQLiteConnection("a:/vvv.db");
-            _sqlcon.CreateTable<Stock>();
-        }
+
         public void config_common()
         {
-            if (File.Exists("a:/sixpan/token.inf"))
-            {
-                old_token = File.ReadAllText("a:/sixpan/token.inf");
-                pan.restoreHeaderToken(old_token);
-            }
             if (File.Exists("../../config.tml"))
             {
                 var toml = Nett.Toml.ReadFile("../../config.tml");
@@ -77,19 +61,23 @@ namespace ms_ui
             if (last != '/' && last != '\\')
                 _tempPath = _tempPath + '/';
             Common.makeSureDirectoryExist(_tempPath);
+
+            if (File.Exists(_tempPath + "token.inf"))
+            {
+                old_token = File.ReadAllText(_tempPath + "token.inf");
+                pan.restoreHeaderToken(old_token);
+            }
+
             string dbfile = _tempPath + "sixpan_sqlite.db";
-            _sqlcon = new SQLiteConnection("a:/vvv.db");
-            _sqlcon.CreateTable<Stock>();
-            //if (!File.Exists(dbfile))
-            //{
-
-            //    _sqlcon = new SQLiteConnection("a:/vvv.db");
-            //    _sqlcon.CreateTable<Stock>();
-            //}else
-            //{
-            //    _sqlcon = new SQLiteConnection(dbfile);
-            //}
-
+            if (!File.Exists(dbfile))
+            {
+                _sqlcon = new SQLiteConnection(dbfile);
+                _sqlcon.CreateTable<Filesystem>();
+            }
+            else
+            {
+                _sqlcon = new SQLiteConnection(dbfile);
+            }
         }
 
         public async Task<bool> login()
@@ -101,8 +89,8 @@ namespace ms_ui
 
         private async void LoginBtn_Click(object sender, RoutedEventArgs e)
         {
-            if (File.Exists("a:/sixpan/token.inf"))
-                pan.restoreHeaderToken(File.ReadAllText("a:/sixpan/token.inf"));
+            if (File.Exists(_tempPath + "token.inf"))
+                pan.restoreHeaderToken(File.ReadAllText(_tempPath + "token.inf"));
             else
             {
                 var b = await login();
@@ -163,9 +151,9 @@ namespace ms_ui
 
         private async void context_DownloadFaceFile(object sender, RoutedEventArgs e)
         {
-            var p = from VFile x in listView.SelectedItems where x != null select Pr.@from(x.id) ;
+            var p = from VFile x in listView.SelectedItems where x != null select new {  x.id,x.Name };
             foreach (var v in p)
-                await pan.download(v, _tempPath);
+                await pan.download(Pr.from(v.id), _tempPath+ v.Name);
         }
 
         private async void context_UploadFaceFile(object sender, RoutedEventArgs e)
@@ -242,8 +230,8 @@ namespace ms_ui
                     db_needupdate_child = false;
                     curdir = new VDirectory();
                     curdir.id = id;
-                    var files  = from x in filebases where (x.isdir == false) select (new VFile() { id = x.id, ModifiedTime = x.time, Name = x.name, Size = x.size}); ;
-                    var dirs = from x in filebases where (x.isdir == true) select (new VDirectory() { id = x.id, ModifiedTime = x.time, Name = x.name }); ;
+                    var files  = from x in filebases where (x.isdir == false) select (new VFile() { id = x.id, ModifiedTime = x.time, Name = x.name, Size = x.size});
+                    var dirs = from x in filebases where (x.isdir == true) select (new VDirectory() { id = x.id, ModifiedTime = x.time, Name = x.name });
                     ObservableCollection<VDirectory> td = new ObservableCollection<VDirectory>();
                     ObservableCollection<VFile> tf = new ObservableCollection<VFile>();
                     foreach (var x in files)
@@ -391,7 +379,7 @@ namespace ms_ui
 
             var token = pan.getHeaderToken();
             if(old_token != token)
-                File.WriteAllText("a:/sixpan/token.inf",token);
+                File.WriteAllText(_tempPath + "token.inf",token);
         }
 
 
